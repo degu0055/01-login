@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Protected Page</title>
+</head>
+<body>
+    <h1>Welcome to the Protected Page</h1>
+    <p>You are logged in as {{ user['userinfo']['email'] }}</p>
+    <a href="{{ url_for('logout') }}">Logout</a>
+</body>
+</html>

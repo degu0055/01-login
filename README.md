@@ -166,7 +166,23 @@ if __name__ == '__main__':
 </html>
 ```
 
-### 9. Run the Application
+### 9. Create `templates/protected.html`
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Protected Page</title>
+</head>
+<body>
+    <h1>Welcome to the Protected Page</h1>
+    <p>You are logged in as {{ user['userinfo']['email'] }}</p>
+    <a href="{{ url_for('logout') }}">Logout</a>
+</body>
+</html>
+```
+
+### 10. Run the Application
 
 ```bash
 python server.py

@@ -126,6 +126,15 @@ def logout():
         f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?returnTo={url_for('home', _external=True)}&client_id={os.getenv('AUTH0_CLIENT_ID')}"
     )
 
+@app.route("/protected")
+def protected():
+    user = session.get("user")
+    if user is None:
+        # Save current URL to return after login (optional)
+        session["redirect_after_login"] = request.path
+        return redirect(url_for("login"))
+    return render_template("protected.html", user=user)
+
 if __name__ == '__main__':
     app.run(debug=True, port=3000)
 ```

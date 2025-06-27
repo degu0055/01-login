@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import traceback
 from datetime import datetime
 from os import environ as env
@@ -22,11 +23,17 @@ app.secret_key = env.get("APP_SECRET_KEY")
 app.config["PREFERRED_URL_SCHEME"] = "https"
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
 
-# Configure structured JSON logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# Reconfigure logging to output all logs to stdout only (avoid Azure marking logs as errors)
+root_logger = logging.getLogger()
+for handler in root_logger.handlers[:]:
+    root_logger.removeHandler(handler)
+
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+stdout_handler.setFormatter(formatter)
+root_logger.addHandler(stdout_handler)
+root_logger.setLevel(logging.DEBUG)
 
 app.logger.debug(f'AUTH0_CLIENT_ID={env.get("AUTH0_CLIENT_ID")}')
 app.logger.debug(f'AUTH0_DOMAIN={env.get("AUTH0_DOMAIN")}')

@@ -8,7 +8,7 @@ from urllib.parse import quote_plus, urlencode
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, session, url_for, request
-from werkzeug.middleware.proxy_fix import ProxyFix  # <-- added
+from werkzeug.middleware.proxy_fix import ProxyFix  # <-- for Azure compatibility
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -18,19 +18,16 @@ if ENV_FILE:
 app = Flask(__name__)
 app.secret_key = env.get("APP_SECRET_KEY")
 
-# Force HTTPS for url_for's _external URLs
+# Force HTTPS for Azure
 app.config["PREFERRED_URL_SCHEME"] = "https"
-
-# Apply ProxyFix middleware to respect X-Forwarded headers (important on Azure)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
 
-# Configure logging
+# Configure structured JSON logging
 logging.basicConfig(
-    level=logging.DEBUG,  # DEBUG for verbose output
+    level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Log env vars used for Auth0 (avoid logging secrets in production!)
 app.logger.debug(f'AUTH0_CLIENT_ID={env.get("AUTH0_CLIENT_ID")}')
 app.logger.debug(f'AUTH0_DOMAIN={env.get("AUTH0_DOMAIN")}')
 
@@ -48,9 +45,7 @@ try:
         "auth0",
         client_id=env.get("AUTH0_CLIENT_ID"),
         client_secret=env.get("AUTH0_CLIENT_SECRET"),
-        client_kwargs={
-            "scope": "openid profile email",
-        },
+        client_kwargs={"scope": "openid profile email"},
         server_metadata_url=server_metadata_url,
     )
 except Exception as e:
@@ -78,7 +73,13 @@ def callback():
         user_id = user_info.get("sub", "unknown")
         email = user_info.get("email", "unknown")
         timestamp = datetime.utcnow().isoformat()
-        app.logger.info(f"[LOGIN] user_id={user_id}, email={email}, timestamp={timestamp}")
+
+        app.logger.info(json.dumps({
+            "event": "LOGIN",
+            "user_id": user_id,
+            "email": email,
+            "timestamp": timestamp
+        }))
 
         redirect_to = session.pop("redirect_after_login", "/")
         return redirect(redirect_to)
@@ -128,7 +129,11 @@ def logout():
 def protected():
     user = session.get("user")
     if user is None:
-        app.logger.warning(f"[UNAUTHORIZED ACCESS] Attempt to access /protected at {datetime.utcnow().isoformat()}")
+        app.logger.warning(json.dumps({
+            "event": "UNAUTHORIZED_ACCESS",
+            "path": "/protected",
+            "timestamp": datetime.utcnow().isoformat()
+        }))
         session["redirect_after_login"] = request.path
         return redirect(url_for("login"))
 
@@ -136,7 +141,14 @@ def protected():
     user_id = user_info.get("sub", "unknown")
     email = user_info.get("email", "unknown")
     timestamp = datetime.utcnow().isoformat()
-    app.logger.info(f"[ACCESS] /protected accessed by user_id={user_id}, email={email}, timestamp={timestamp}")
+
+    app.logger.info(json.dumps({
+        "event": "ACCESS",
+        "path": "/protected",
+        "user_id": user_id,
+        "email": email,
+        "timestamp": timestamp
+    }))
 
     return render_template("protected.html", user=user)
 

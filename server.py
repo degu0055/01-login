@@ -8,6 +8,7 @@ from urllib.parse import quote_plus, urlencode
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, session, url_for, request
+from werkzeug.middleware.proxy_fix import ProxyFix  # <-- added
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -16,6 +17,12 @@ if ENV_FILE:
 
 app = Flask(__name__)
 app.secret_key = env.get("APP_SECRET_KEY")
+
+# Force HTTPS for url_for's _external URLs
+app.config["PREFERRED_URL_SCHEME"] = "https"
+
+# Apply ProxyFix middleware to respect X-Forwarded headers (important on Azure)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1)
 
 # Configure logging
 logging.basicConfig(
